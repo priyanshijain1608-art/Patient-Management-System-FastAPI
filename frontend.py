@@ -1,7 +1,9 @@
-#making a streamlit website for interaction of patient management system api with frontend
+# Making a Streamlit website for interaction with Patient Management System API
+
 import streamlit as st
 import requests
-BASE_URL="https://patient-management-system-fastapi-4em.onrender.com"
+
+BASE_URL = "https://patient-management-system-fastapi-4em.onrender.com"
 
 st.set_page_config(
     page_title="Patient Management System",
@@ -23,7 +25,42 @@ menu = st.sidebar.selectbox(
     ]
 )
 
-# ---------------- CREATE ----------------
+
+# ============================================================
+# HELPER FUNCTION FOR ERROR HANDLING
+# ============================================================
+
+def show_error(response):
+    """
+    Displays API errors safely.
+    Handles both JSON and non-JSON responses.
+    """
+
+    try:
+        error_data = response.json()
+
+        if isinstance(error_data, dict):
+            detail = error_data.get("detail")
+
+            if detail:
+                st.error(str(detail))
+            else:
+                st.error(str(error_data))
+        else:
+            st.error(str(error_data))
+
+    except ValueError:
+        st.error(
+            f"Request failed with status code {response.status_code}"
+        )
+
+        if response.text:
+            st.code(response.text)
+
+
+# ============================================================
+# CREATE PATIENT
+# ============================================================
 
 if menu == "Create Patient":
 
@@ -31,29 +68,64 @@ if menu == "Create Patient":
 
     patient_id = st.text_input("Patient ID")
     name = st.text_input("Patient Name")
-    age = st.number_input("Age", min_value=1, max_value=120)
-    weight = st.number_input("Weight", min_value=1.0)
+
+    age = st.number_input(
+        "Age",
+        min_value=1,
+        max_value=120,
+        value=1
+    )
+
+    weight = st.number_input(
+        "Weight",
+        min_value=1.0,
+        value=1.0
+    )
 
     if st.button("Create"):
 
-        payload = {
-            "id": patient_id,
-            "name": name,
-            "age": age,
-            "weight": weight
-        }
+        if not patient_id:
+            st.warning("Please enter Patient ID.")
 
-        response = requests.post(
-            f"{BASE_URL}/create",
-            json=payload
-        )
+        elif not name:
+            st.warning("Please enter Patient Name.")
 
-        if response.status_code == 201:
-            st.success("Patient Created Successfully")
         else:
-            st.error(response.text)
 
-# ---------------- VIEW ALL ----------------
+            payload = {
+                "id": patient_id,
+                "name": name,
+                "age": age,
+                "weight": weight
+            }
+
+            try:
+
+                response = requests.post(
+                    f"{BASE_URL}/create",
+                    json=payload,
+                    timeout=30
+                )
+
+                if response.status_code in [200, 201]:
+
+                    st.success("Patient Created Successfully")
+
+                    try:
+                        st.json(response.json())
+                    except ValueError:
+                        st.write(response.text)
+
+                else:
+                    show_error(response)
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"Unable to connect to backend: {e}")
+
+
+# ============================================================
+# VIEW ALL PATIENTS
+# ============================================================
 
 elif menu == "View All Patients":
 
@@ -61,14 +133,31 @@ elif menu == "View All Patients":
 
     if st.button("Load Patients"):
 
-        response = requests.get(f"{BASE_URL}/view")
+        try:
 
-        if response.status_code == 200:
-            st.json(response.json())
-        else:
-            st.error("Unable to fetch data")
+            response = requests.get(
+                f"{BASE_URL}/view",
+                timeout=30
+            )
 
-# ---------------- VIEW ONE ----------------
+            if response.status_code == 200:
+
+                try:
+                    st.json(response.json())
+
+                except ValueError:
+                    st.error("Backend returned an invalid response.")
+
+            else:
+                show_error(response)
+
+        except requests.exceptions.RequestException as e:
+            st.error(f"Unable to connect to backend: {e}")
+
+
+# ============================================================
+# VIEW ONE PATIENT
+# ============================================================
 
 elif menu == "View One Patient":
 
@@ -78,16 +167,38 @@ elif menu == "View One Patient":
 
     if st.button("Search"):
 
-        response = requests.get(
-            f"{BASE_URL}/view/{patient_id}"
-        )
+        if not patient_id:
+            st.warning("Please enter Patient ID.")
 
-        if response.status_code == 200:
-            st.json(response.json())
         else:
-            st.error(response.json()["detail"])
 
-# ---------------- UPDATE ----------------
+            try:
+
+                response = requests.get(
+                    f"{BASE_URL}/view/{patient_id}",
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+
+                    try:
+                        st.json(response.json())
+
+                    except ValueError:
+                        st.error(
+                            "Backend returned an invalid response."
+                        )
+
+                else:
+                    show_error(response)
+
+            except requests.exceptions.RequestException as e:
+                st.error(f"Unable to connect to backend: {e}")
+
+
+# ============================================================
+# UPDATE PATIENT
+# ============================================================
 
 elif menu == "Update Patient":
 
@@ -112,28 +223,62 @@ elif menu == "Update Patient":
 
     if st.button("Update"):
 
-        payload = {}
+        if not patient_id:
+            st.warning("Please enter Patient ID.")
 
-        if name:
-            payload["name"] = name
-
-        if age > 0:
-            payload["age"] = age
-
-        if weight > 0:
-            payload["weight"] = weight
-
-        response = requests.put(
-            f"{BASE_URL}/update/{patient_id}",
-            json=payload
-        )
-
-        if response.status_code == 200:
-            st.success("Patient Updated Successfully")
         else:
-            st.error(response.text)
 
-# ---------------- DELETE ----------------
+            payload = {}
+
+            if name:
+                payload["name"] = name
+
+            if age > 0:
+                payload["age"] = age
+
+            if weight > 0:
+                payload["weight"] = weight
+
+            if not payload:
+
+                st.warning(
+                    "Please enter at least one field to update."
+                )
+
+            else:
+
+                try:
+
+                    response = requests.put(
+                        f"{BASE_URL}/update/{patient_id}",
+                        json=payload,
+                        timeout=30
+                    )
+
+                    if response.status_code == 200:
+
+                        st.success(
+                            "Patient Updated Successfully"
+                        )
+
+                        try:
+                            st.json(response.json())
+
+                        except ValueError:
+                            st.write(response.text)
+
+                    else:
+                        show_error(response)
+
+                except requests.exceptions.RequestException as e:
+                    st.error(
+                        f"Unable to connect to backend: {e}"
+                    )
+
+
+# ============================================================
+# DELETE PATIENT
+# ============================================================
 
 elif menu == "Delete Patient":
 
@@ -143,16 +288,42 @@ elif menu == "Delete Patient":
 
     if st.button("Delete"):
 
-        response = requests.delete(
-            f"{BASE_URL}/delete/{patient_id}"
-        )
+        if not patient_id:
+            st.warning("Please enter Patient ID.")
 
-        if response.status_code == 200:
-            st.success("Patient Deleted Successfully")
         else:
-            st.error(response.text)
 
-# ---------------- SORT ----------------
+            try:
+
+                response = requests.delete(
+                    f"{BASE_URL}/delete/{patient_id}",
+                    timeout=30
+                )
+
+                if response.status_code == 200:
+
+                    st.success(
+                        "Patient Deleted Successfully"
+                    )
+
+                    try:
+                        st.json(response.json())
+
+                    except ValueError:
+                        st.write(response.text)
+
+                else:
+                    show_error(response)
+
+            except requests.exceptions.RequestException as e:
+                st.error(
+                    f"Unable to connect to backend: {e}"
+                )
+
+
+# ============================================================
+# SORT PATIENTS
+# ============================================================
 
 elif menu == "Sort Patients":
 
@@ -170,15 +341,31 @@ elif menu == "Sort Patients":
 
     if st.button("Sort"):
 
-        response = requests.get(
-            f"{BASE_URL}/sort",
-            params={
-                "sort_by": sort_by,
-                "order": order
-            }
-        )
+        try:
 
-        if response.status_code == 200:
-            st.json(response.json())
-        else:
-            st.error(response.text)
+            response = requests.get(
+                f"{BASE_URL}/sort",
+                params={
+                    "sort_by": sort_by,
+                    "order": order
+                },
+                timeout=30
+            )
+
+            if response.status_code == 200:
+
+                try:
+                    st.json(response.json())
+
+                except ValueError:
+                    st.error(
+                        "Backend returned an invalid response."
+                    )
+
+            else:
+                show_error(response)
+
+        except requests.exceptions.RequestException as e:
+            st.error(
+                f"Unable to connect to backend: {e}"
+            )

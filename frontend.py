@@ -1,7 +1,7 @@
 #making a streamlit website for interaction of patient management system api with frontend
 import streamlit as st
 import requests
-BASE_URL = BASE_URL = "https://patient-management-system-fastapi-4em.onrender.com"
+BASE_URL = "https://patient-management-system-fastapi-4em.onrender.com"
 
 st.set_page_config(
     page_title="Patient Management System",

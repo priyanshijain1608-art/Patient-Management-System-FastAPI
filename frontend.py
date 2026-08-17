@@ -3,7 +3,7 @@
 import streamlit as st
 import requests
 
-BASE_URL = "https://patient-management-system-fastapi-4em.onrender.com"
+BASE_URL = "https://patient-management-system-fastapi-4eme.onrender.com"
 
 st.set_page_config(
     page_title="Patient Management System",
